@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mapa + Sistema de Alumbrado</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f2f2f2;
+        }
+
+        #map {
+            width: 100%;
+            height: 70vh;
+        }
+
+        .oculto { display: none; }
+        body {
+            font-family: Arial;
+            background: #f2f2f2;
+            padding: 20px;
+        }
+        h2 { color: #020a83; }
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 10px 20px;
+            background: #c9030d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover { background: #0055aa; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th {
+            background: #003366;
+            color: white;
+            padding: 8px;
+        }
+        td {
+            padding: 8px;
+            border: 1px solid #aaa;
+        }
+    </style>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<div style="padding:20px">
+
+    <h2>Sistema de Alumbrado – Cundinamarca / Tolima / Boyacá</h2>
+
+    <div id="seccionMunicipios" class="card">
+        <h3>Consumo por Municipios</h3>
+        <div id="municipios"></div>
+        <button onclick="mostrarZonas()">Ver tabla de zonas</button>
+    </div>
+
+    <div id="seccionZonas" class="card oculto">
+        <h3>Tabla de Consumo y Costos por Zona</h3>
+        <table id="tablaZonas">
+            <thead>
+                <tr>
+                    <th>Departamento</th>
+                    <th>Municipio</th>
+                    <th>Zona</th>
+                    <th>Consumo (kWh)</th>
+                    <th>Valor kWh</th>
+                    <th>Costo Total</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <button onclick="mostrarMunicipios()">Volver</button>
+    </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+/* =====================================================
+   COORDENADAS DE MUNICIPIOS
+   ===================================================== */
+const coordenadasMunicipios = {
+    "Zipaquirá":[5.0221, -73.9947],
+    "Chía": [4.8588, -74.058],
+    "Girardot": [4.3008, -74.8034],
+
+    "Ibagué": [4.4447, -75.2424],
+    "Espinal": [4.1492, -74.8843],
+    "Melgar": [4.2044, -74.6407],
+
+    "Tunja": [5.5353, -73.3678],
+    "Duitama": [5.8269, -73.0347],
+    "Sogamoso": [5.7204, -72.9333]
+};
+
+
+/* =====================================================
+   MAPA LEAFLET
+   ===================================================== */
+const map = L.map('map').setView([5.02, -73.99], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+}).addTo(map);
+
+/* =====================================================
+   MARCADORES CON COLORES: SALINAS (ROJO) Y PARQUE (AZUL)
+   ===================================================== */
+
+// Coordenadas reales
+const salinas = [5.0186, -74.0061];
+const parqueZipa = [5.0220, -74.0020];  
+
+/* --- ÍCONOS COLOREADOS --- */
+const iconoRojo = new L.Icon({
+    iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -28]
+});
+
+const iconoAzul = new L.Icon({
+    iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -28]
+});
+
+/* --- MARCADOR ROJO: SALINAS --- */
+L.marker(salinas, { icon: iconoRojo })
+    .addTo(map)
+    .bindPopup("<b>Salinas de Zipaquirá luminaria 1/ estado: fallo</b><br>Catedral de Sal.");
+
+/* --- MARCADOR AZUL: PARQUE PRINCIPAL --- */
+L.marker(parqueZipa, { icon: iconoAzul })
+    .addTo(map)
+    .bindPopup("<b>Parque Principal de Zipaquirá luminaria 2/ estado: activa</b><br>Plaza de los Comuneros.");
+    /* =====================================================
+   NUEVOS MARCADORES: VALVANERA (ROJO) Y PARQUE CHÍA (AZUL)
+   ===================================================== */
+
+// Coordenadas nuevas
+const valvanera = [5.02452, -74.00375];
+const parqueChia = [4.86463, -74.06047];
+
+/* =====================================================
+   MARCADOR ROJO: IGLESIA LA VALVANERA (CHÍA)
+   ===================================================== */
+
+const iglesiaValvaneraChia = [4.86742, -74.04995];
+
+L.marker(iglesiaValvaneraChia, { icon: iconoRojo })
+    .addTo(map)
+    .bindPopup("<b>Iglesia La Valvanera luminaria 1/ estado: activa</b><br>Chía, Cundinamarca.");
+
+
+/* --- MARCADOR AZUL: PARQUE PRINCIPAL DE CHÍA --- */
+L.marker(parqueChia, { icon: iconoAzul })
+    .addTo(map)
+    .bindPopup("<b>Parque Principal de Chía luminaria 2/ estado: fallo</b><br>Parque Santander.");
+
+
+
+/* =====================================================
+   FUNCIÓN PARA CENTRAR MUNICIPIO
+   ===================================================== */
+function centrarMunicipio(nombre) {
+    const coords = coordenadasMunicipios[nombre];
+    if (!coords) {
+        alert("Este municipio no tiene coordenadas definidas.");
+        return;
+    }
+    map.setView(coords, 15);
+}
+
+
+/* =====================================================
+   SISTEMA MUNICIPIOS Y ZONAS
+   ===================================================== */
+const valorKwh = 620;
+
+const departamentos = {
+    "Cundinamarca": {
+        "Zipaquirá": { zonas: { "Zona 1": 420, "Zona 2": 260 } },
+        "Chía":       { zonas: { "Zona 1": 300, "Zona 2": 180, "Zona 3": 150 } },
+        "Girardot":   { zonas: { "Zona 1": 500, "Zona 2": 340 } }
+    },
+    "Tolima": {
+        "Ibagué": { zonas: { "Zona 1": 650, "Zona 2": 430 } },
+        "Espinal": { zonas: { "Zona 1": 300, "Zona 2": 190 } },
+        "Melgar": { zonas: { "Zona 1": 250, "Zona 2": 170 } }
+    },
+    "Boyacá": {
+        "Tunja": { zonas: { "Zona 1": 400, "Zona 2": 280, "Zona 3": 200 } },
+        "Duitama": { zonas: { "Zona 1": 350, "Zona 2": 230 } },
+        "Sogamoso": { zonas: { "Zona 1": 300, "Zona 2": 260 } }
+    }
+};
+
+
+/* =====================================================
+   MOSTRAR / OCULTAR
+   ===================================================== */
+function mostrarMunicipios() {
+    document.getElementById("seccionMunicipios").classList.remove("oculto");
+    document.getElementById("seccionZonas").classList.add("oculto");
+}
+
+function mostrarZonas() {
+    document.getElementById("seccionMunicipios").classList.add("oculto");
+    document.getElementById("seccionZonas").classList.remove("oculto");
+}
+
+
+/* =====================================================
+   LISTA MUNICIPIOS
+   ===================================================== */
+let municipioDiv = document.getElementById("municipios");
+
+for (const [departamento, muniObj] of Object.entries(departamentos)) {
+    municipioDiv.innerHTML += `<h3 style="color:#003366">${departamento}</h3>`;
+
+    for (const [municipio, data] of Object.entries(muniObj)) {
+
+        let totalConsumo = Object.values(data.zonas).reduce((a, b) => a + b, 0);
+
+        municipioDiv.innerHTML += `
+            <p>
+                <strong style="color:#2b7cff; cursor:pointer"
+                    onclick="centrarMunicipio('${municipio}')">
+                    ${municipio}
+                </strong>: ${totalConsumo} kWh
+            </p>
+        `;
+    }
+}
+
+
+/* =====================================================
+   TABLA ZONAS
+   ===================================================== */
+let tabla = document.querySelector("#tablaZonas tbody");
+
+for (const [departamento, municipios] of Object.entries(departamentos)) {
+    for (const [municipio, data] of Object.entries(municipios)) {
+        for (const [zona, consumo] of Object.entries(data.zonas)) {
+
+            let costo = consumo * valorKwh;
+
+            tabla.innerHTML += `
+                <tr>
+                    <td>${departamento}</td>
+                    <td>${municipio}</td>
+                    <td>${zona}</td>
+                    <td>${consumo}</td>
+                    <td>${valorKwh} COP</td>
+                    <td>${costo.toLocaleString("es-CO")} COP</td>
+                </tr>
+            `;
+        }
+    }
+}
+
+</script>
+
+</body>
+</html>
