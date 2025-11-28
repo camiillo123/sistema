@@ -1,289 +1,568 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Mapa + Sistema de Alumbrado</title>
-
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f2f2f2;
-        }
-
-        #map {
-            width: 100%;
-            height: 70vh;
-        }
-
-        .oculto { display: none; }
-        body {
-            font-family: Arial;
-            background: #f2f2f2;
-            padding: 20px;
-        }
-        h2 { color: #020a83; }
-        .card {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        button {
-            padding: 10px 20px;
-            background: #c9030d;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        button:hover { background: #0055aa; }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        th {
-            background: #003366;
-            color: white;
-            padding: 8px;
-        }
-        td {
-            padding: 8px;
-            border: 1px solid #aaa;
-        }
-    </style>
-
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <meta charset="utf-8" />
+  <title>Mapa + Sistema de Alumbrado (RETLAP + SIAP)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root{--accent:#1f6feb;--danger:#c9030d;--muted:#667;}
+    html,body{height:100%;margin:0;font-family:Arial, Helvetica, sans-serif;background:#f6f8fb;color:#111}
+    .app { display:grid; grid-template-columns: 360px 1fr; gap:12px; height:100vh; padding:12px; box-sizing:border-box;}
+    .panel { background:#fff; border-radius:10px; padding:14px; box-shadow:0 6px 18px rgba(20,30,40,0.06); overflow:auto; }
+    header h1{margin:0;font-size:18px;color:var(--accent)}
+    #map { width:100%; height: calc(100vh - 64px); border-radius:10px; }
+    .btn { display:inline-block; padding:8px 12px; border-radius:8px; background:var(--accent); color:#fff; text-decoration:none; cursor:pointer; border:none; }
+    .btn.secondary { background:#3b82f6; opacity:0.95 }
+    .btn.ghost { background:transparent;color:var(--accent); border:1px solid #e6eefc }
+    .small { font-size:13px; padding:6px 8px }
+    h3{margin:8px 0 12px 0;color:#123}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+    th{background:#f2f6ff;color:#123}
+    .badge { display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;background:#eef3ff;color:#123 }
+    .status-active{background:#e6f5ea;color:#0b7a2a}
+    .status-fallo{background:#ffecea;color:#c9030d}
+    .status-apagada{background:#fff4e6;color:#b85a00}
+    .status-intermitente{background:#fff7e6;color:#a06e00}
+    .controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .flexrow{display:flex;gap:8px;align-items:center}
+    .right { margin-left:auto }
+    .card { background:#fff;border-radius:8px;padding:10px;margin-bottom:10px;box-shadow:0 3px 8px rgba(10,30,60,0.04) }
+    textarea,input,select{width:100%;padding:8px;border-radius:6px;border:1px solid #dde7ff;box-sizing:border-box}
+    .hidden{display:none}
+    .footer { font-size:12px;color:var(--muted);margin-top:8px }
+  </style>
 </head>
-
 <body>
+  <div class="app">
 
-<div id="map"></div>
+    <!-- LATERAL -->
+    <div class="panel" id="sidebar">
+      <header>
+        <h1>Sistema Alumbrado (RETLAP + SIAP)</h1>
+        <div class="small">Municipios: Cundinamarca / Tolima / Boyacá</div>
+      </header>
 
-<div style="padding:20px">
+      <div style="margin-top:12px" class="controls">
+        <button class="btn small" onclick="mostrarSeccion('inventario')">Inventario</button>
+        <button class="btn small" onclick="mostrarSeccion('zonas')">Zonas</button>
+        <button class="btn small" onclick="mostrarSeccion('siap')">Export SIAP</button>
+        <button class="btn small" onclick="centrarMapaDefault()">Centrar mapa</button>
+      </div>
 
-    <h2>Sistema de Alumbrado – Cundinamarca / Tolima / Boyacá</h2>
+      <div id="inventario" class="section">
+        <h3>Municipios</h3>
+        <div id="municipiosList"></div>
+      </div>
 
-    <div id="seccionMunicipios" class="card">
-        <h3>Consumo por Municipios</h3>
-        <div id="municipios"></div>
-        <button onclick="mostrarZonas()">Ver tabla de zonas</button>
+      <div id="zonas" class="section hidden">
+        <h3>Consumo por Zonas</h3>
+        <div id="zonasTableWrapper"></div>
+      </div>
+
+      <div id="siap" class="section hidden">
+        <h3>Exportar Inventario (SIAP)</h3>
+        <p class="small">Genera archivo JSON/CSV con formato SIAP-like.</p>
+        <div style="display:flex;gap:8px">
+          <button class="btn small" onclick="exportSIAPJSON()">Exportar JSON</button>
+          <button class="btn small" onclick="exportSIAPCSV()">Exportar CSV</button>
+        </div>
+        <div class="footer">Nota: el JSON exportado incluye ficha técnica RETILAP y campos requeridos por SIAP.</div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid #eef4ff;margin:12px 0" />
+      <div>
+        <h3>Detalles / Buscar</h3>
+        <input id="search" placeholder="Buscar por municipio, zona, código SIAP o luminaria" oninput="filtrarInventario()" />
+        <div id="searchResults" style="margin-top:8px"></div>
+      </div>
+
     </div>
 
-    <div id="seccionZonas" class="card oculto">
-        <h3>Tabla de Consumo y Costos por Zona</h3>
-        <table id="tablaZonas">
-            <thead>
-                <tr>
-                    <th>Departamento</th>
-                    <th>Municipio</th>
-                    <th>Zona</th>
-                    <th>Consumo (kWh)</th>
-                    <th>Valor kWh</th>
-                    <th>Costo Total</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-        <button onclick="mostrarMunicipios()">Volver</button>
+    <!-- MAPA -->
+    <div class="panel" id="mainPanel">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="flex:1">
+          <div id="map"></div>
+        </div>
+        <!-- Right column for details -->
+      </div>
+
+      <div style="display:flex;gap:12px;margin-top:10px">
+        <div style="flex:1">
+          <div class="card">
+            <h3>Ficha luminaria seleccionada</h3>
+            <div id="fichaDetalle">
+              <div class="small">Haz clic en un marcador para ver la ficha técnica</div>
+            </div>
+          </div>
+        </div>
+        <div style="width:360px">
+          <div class="card">
+            <h3>Historial de mantenimiento</h3>
+            <div id="mantList"><div class="small">Selecciona una luminaria para ver historial.</div></div>
+          </div>
+          <div class="card">
+            <h3>Añadir registro de mantenimiento</h3>
+            <div>
+              <input id="mantFecha" type="date" />
+              <input id="mantTecnico" placeholder="Técnico / Empresa" style="margin-top:8px" />
+              <select id="mantTipo" style="margin-top:8px">
+                <option value="inspección">Inspección</option>
+                <option value="reparación">Reparación</option>
+                <option value="reemplazo">Reemplazo</option>
+                <option value="retiro">Retiro</option>
+              </select>
+              <textarea id="mantObs" placeholder="Observaciones" style="margin-top:8px"></textarea>
+              <button class="btn small" style="margin-top:8px" onclick="agregarMantenimiento()">Agregar registro</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
+  </div>
 
-</div>
+  <!-- Dependencias -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+  /* -----------------------------------------------------------
+     DATOS INICIALES: Municipios, Zonas y Luminarias (ejemplo)
+     Cada luminaria tiene la ficha técnica RETILAP + campos SIAP
+     ----------------------------------------------------------- */
 
-<script>
-/* =====================================================
-   COORDENADAS DE MUNICIPIOS
-   ===================================================== */
-const coordenadasMunicipios = {
+  // Coordenadas base municipios (centros aproximados)
+  const coordenadasMunicipios = {
     "Zipaquirá":[5.0221, -73.9947],
     "Chía": [4.8588, -74.058],
     "Girardot": [4.3008, -74.8034],
-
     "Ibagué": [4.4447, -75.2424],
     "Espinal": [4.1492, -74.8843],
     "Melgar": [4.2044, -74.6407],
-
     "Tunja": [5.5353, -73.3678],
     "Duitama": [5.8269, -73.0347],
     "Sogamoso": [5.7204, -72.9333]
-};
+  };
 
+  // Nivel mínimo de iluminancia orientativo por tipo de vía (lux) — para comprobación básica RETILAP
+  const nivelMinimoPorVia = {
+    "residencial": 5,
+    "intersección": 20,
+    "avenida": 10,
+    "carretera": 7
+  };
 
-/* =====================================================
-   MAPA LEAFLET
-   ===================================================== */
-const map = L.map('map').setView([5.02, -73.99], 13);
+  // Generador simple de código SIAP (municipio + zona + serial)
+  function generarCodigoSIAP(municipio,zona,serial){
+    const m = municipio.slice(0,3).toUpperCase().replace(/\s/g,'');
+    const z = zona.replace(/\s/g,'').toUpperCase();
+    const s = String(serial).padStart(4,'0');
+    return `SIAP-${m}-${z}-${s}`;
+  }
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap'
-}).addTo(map);
+  // Estado: activa / fallo / apagada / intermitente / robo
+  // Ejemplo de inventario de luminarias (cada elemento: id, nombre, coords, depto, municipio, zona, potenciaW, tipo, flujoLm, alturaM, fecha_instalacion, vida_util_anos, curva_fotometrica, estado, consumoMensualKwh, mantenimiento[])
+  let inventario = [
+    {
+      id:1, nombre:"Luminaria 001 Zipa - Zona 1", coords:[5.0186,-74.0061], departamento:"Cundinamarca", municipio:"Zipaquirá", zona:"Zona 1",
+      potenciaW:150, tipo:"LED", flujoLm:18000, alturaM:8, fecha_instalacion:"2021-04-12", vida_util:10, curva_fotometrica:"LM79-ref-001",
+      estado:"fallo", consumoMensualKwh:25, observaciones:"Requiere reemplazo de driver",
+      mantenimiento: [
+        {fecha:"2023-05-12", tipo:"inspección", tecnico:"Operador A", obs:"Cambio portalámparas"},
+      ]
+    },
+    {
+      id:2, nombre:"Luminaria 002 Zipa - Zona 1", coords:[5.0220,-74.0020], departamento:"Cundinamarca", municipio:"Zipaquirá", zona:"Zona 1",
+      potenciaW:100, tipo:"Sodio", flujoLm:12000, alturaM:7, fecha_instalacion:"2016-09-03", vida_util:8, curva_fotometrica:"NTC-curve-12",
+      estado:"activa", consumoMensualKwh:30, observaciones:"-",
+      mantenimiento: [
+        {fecha:"2024-02-14", tipo:"reparación", tecnico:"Operador B", obs:"Reemplazo balasta"}
+      ]
+    },
+    {
+      id:3, nombre:"IGLESIA LA VALVANERA - Chía", coords:[4.86742,-74.04995], departamento:"Cundinamarca", municipio:"Chía", zona:"Centro",
+      potenciaW:200, tipo:"LED", flujoLm:22000, alturaM:10, fecha_instalacion:"2022-06-01", vida_util:12, curva_fotometrica:"LM79-ref-igv",
+      estado:"activa", consumoMensualKwh:45, observaciones:"Foco LED 200W",
+      mantenimiento: []
+    },
+    {
+      id:4, nombre:"Parque Principal Chía", coords:[4.86463,-74.06047], departamento:"Cundinamarca", municipio:"Chía", zona:"Parque",
+      potenciaW:120, tipo:"LED", flujoLm:15000, alturaM:9, fecha_instalacion:"2019-11-20", vida_util:10, curva_fotometrica:"LM79-PARQ",
+      estado:"fallo", consumoMensualKwh:28, observaciones:"Fundamento, pos. 3",
+      mantenimiento: [{fecha:"2025-01-12", tipo:"inspección", tecnico:"Operador C", obs:"Detectada corrosión en brazo"}]
+    },
+    // Añadir más elementos de ejemplo para otros municipios...
+    {
+      id:5, nombre:"Luminaria Ibagué 01", coords:[4.4447,-75.2424], departamento:"Tolima", municipio:"Ibagué", zona:"Avenida 1",
+      potenciaW:250, tipo:"LED", flujoLm:30000, alturaM:12, fecha_instalacion:"2020-03-10", vida_util:15, curva_fotometrica:"LM79-IBG-250",
+      estado:"activa", consumoMensualKwh:55, observaciones:"-",
+      mantenimiento: []
+    }
+  ];
 
-/* =====================================================
-   MARCADORES CON COLORES: SALINAS (ROJO) Y PARQUE (AZUL)
-   ===================================================== */
+  // Añadir campos SIAP (código único) y calculados
+  function inicializarInventario(){
+    let serial = 1;
+    for(const item of inventario){
+      item.codigoSIAP = generarCodigoSIAP(item.municipio, item.zona, serial);
+      item.costoKwh = 620; // valor referencial COP / kWh, puedes parametrizar
+      item.costoMensual = item.consumoMensualKwh * item.costoKwh;
+      serial++;
+    }
+  }
+  inicializarInventario();
 
-// Coordenadas reales
-const salinas = [5.0186, -74.0061];
-const parqueZipa = [5.0220, -74.0020];  
+  /* -----------------------------------------------------------
+     MAPA LEAFLET Y MARCADORES
+     ----------------------------------------------------------- */
+  const map = L.map('map').setView([4.9,-74.1], 8);
 
-/* --- ÍCONOS COLOREADOS --- */
-const iconoRojo = new L.Icon({
-    iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png',
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -28]
-});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19, attribution:'© OpenStreetMap'
+  }).addTo(map);
 
-const iconoAzul = new L.Icon({
-    iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png',
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -28]
-});
+  // Iconos por estado
+  function crearIconoColor(color){
+    return new L.Icon({
+      iconUrl: `https://maps.gstatic.com/mapfiles/ms2/micons/${color}-dot.png`,
+      iconSize: [28,28],
+      iconAnchor:[14,28],
+      popupAnchor:[0,-26]
+    });
+  }
+  const iconoVerde = crearIconoColor('green');
+  const iconoRojo = crearIconoColor('red');
+  const iconoAmarillo = crearIconoColor('yellow');
+  const iconoBlue = crearIconoColor('blue');
+  const iconoPurple = crearIconoColor('purple');
 
-/* --- MARCADOR ROJO: SALINAS --- */
-L.marker(salinas, { icon: iconoRojo })
-    .addTo(map)
-    .bindPopup("<b>Salinas de Zipaquirá luminaria 1/ estado: fallo</b><br>Catedral de Sal.");
+  // Map id->marker
+  const markers = {};
 
-/* --- MARCADOR AZUL: PARQUE PRINCIPAL --- */
-L.marker(parqueZipa, { icon: iconoAzul })
-    .addTo(map)
-    .bindPopup("<b>Parque Principal de Zipaquirá luminaria 2/ estado: activa</b><br>Plaza de los Comuneros.");
-    /* =====================================================
-   NUEVOS MARCADORES: VALVANERA (ROJO) Y PARQUE CHÍA (AZUL)
-   ===================================================== */
+  function estadoAIcono(estado){
+    if(estado==='activa') return iconoVerde;
+    if(estado==='fallo') return iconoRojo;
+    if(estado==='apagada') return iconoAmarillo;
+    if(estado==='intermitente') return iconoPurple;
+    if(estado==='robo') return iconoBlue;
+    return iconoBlue;
+  }
 
-// Coordenadas nuevas
-const valvanera = [5.02452, -74.00375];
-const parqueChia = [4.86463, -74.06047];
+  function crearPopupHTML(item){
+    const cumplimiento = comprobarFotometria(item) ? '<span class="badge status-active">Cumple fotometría</span>' : '<span class="badge status-fallo">No cumple fotometría</span>';
+    return `
+      <div style="min-width:240px">
+        <strong>${item.nombre}</strong><br/>
+        <small>${item.departamento} / ${item.municipio} / ${item.zona}</small>
+        <hr style="border:none;border-top:1px solid #eef4ff;margin:8px 0" />
+        <div><b>Código SIAP:</b> ${item.codigoSIAP}</div>
+        <div><b>Tipo:</b> ${item.tipo} • <b>Potencia:</b> ${item.potenciaW} W</div>
+        <div><b>Flujo:</b> ${item.flujoLm} lm • <b>Altura:</b> ${item.alturaM} m</div>
+        <div><b>Estado:</b> <span class="badge ${item.estado==='activa'?'status-active':'status-fallo'}">${item.estado}</span></div>
+        <div style="margin-top:6px">${cumplimiento}</div>
+        <hr style="border:none;border-top:1px solid #eef4ff;margin:8px 0" />
+        <div style="display:flex; gap:8px;">
+           <button class="btn small" onclick="verFicha(${item.id})">Ver ficha</button>
+           <button class="btn ghost small" onclick="centrarEn(${item.coords[0]},${item.coords[1]})">Centrar</button>
+        </div>
+      </div>
+    `;
+  }
 
-/* =====================================================
-   MARCADOR ROJO: IGLESIA LA VALVANERA (CHÍA)
-   ===================================================== */
+  function dibujarInventarioEnMapa(){
+    // limpiar si ya hay
+    for(const k in markers){
+      try{ map.removeLayer(markers[k]); } catch(e){}
+    }
+    for(const item of inventario){
+      const icon = estadoAIcono(item.estado);
+      const marker = L.marker(item.coords, { icon }).addTo(map);
+      marker.bindPopup(crearPopupHTML(item), { maxWidth:320 });
+      marker.on('click', ()=>verFicha(item.id));
+      markers[item.id] = marker;
+    }
+  }
+  dibujarInventarioEnMapa();
 
-const iglesiaValvaneraChia = [4.86742, -74.04995];
+  /* -----------------------------------------------------------
+     FUNCIONES DE UI: mostrar secciones laterales, centrar, buscar
+     ----------------------------------------------------------- */
+  function mostrarSeccion(id){
+    document.querySelectorAll('.section').forEach(s=>s.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+    if(id==='inventario') renderMunicipios();
+    if(id==='zonas') renderZonasTable();
+  }
 
-L.marker(iglesiaValvaneraChia, { icon: iconoRojo })
-    .addTo(map)
-    .bindPopup("<b>Iglesia La Valvanera luminaria 1/ estado: activa</b><br>Chía, Cundinamarca.");
+  function centrarMapaDefault(){
+    map.setView([4.9,-74.1],8);
+  }
 
+  function centrarEn(lat,lng){
+    map.setView([lat,lng],16);
+  }
 
-/* --- MARCADOR AZUL: PARQUE PRINCIPAL DE CHÍA --- */
-L.marker(parqueChia, { icon: iconoAzul })
-    .addTo(map)
-    .bindPopup("<b>Parque Principal de Chía luminaria 2/ estado: fallo</b><br>Parque Santander.");
+  function renderMunicipios(){
+    const wrapper = document.getElementById('municipiosList');
+    wrapper.innerHTML = '';
+    // Agrupar por departamento->municipio y sumar consumo
+    const agrup = {};
+    for(const item of inventario){
+      agrup[item.departamento] = agrup[item.departamento]||{};
+      agrup[item.departamento][item.municipio] = agrup[item.departamento][item.municipio]||{consumo:0,zona:{}};
+      agrup[item.departamento][item.municipio].consumo += item.consumoMensualKwh;
+      agrup[item.departamento][item.municipio].zona[item.zona] = (agrup[item.departamento][item.municipio].zona[item.zona]||0) + item.consumoMensualKwh;
+    }
 
+    for(const [dept,munis] of Object.entries(agrup)){
+      const h = document.createElement('div');
+      h.innerHTML = `<h4 style="margin:8px 0;color:#0b4ea2">${dept}</h4>`;
+      for(const [mun,info] of Object.entries(munis)){
+        const p = document.createElement('div');
+        p.innerHTML = `<div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1"><strong style="cursor:pointer;color:var(--accent)" onclick="centrarMunicipio('${mun}')">${mun}</strong><br/><small>${info.consumo} kWh</small></div>
+          <div><button class="btn small" onclick="mostrarZonasMunicipio('${dept}','${mun}')">Ver zonas</button></div>
+        </div>`;
+        h.appendChild(p);
+      }
+      wrapper.appendChild(h);
+    }
+  }
 
-
-/* =====================================================
-   FUNCIÓN PARA CENTRAR MUNICIPIO
-   ===================================================== */
-function centrarMunicipio(nombre) {
+  function centrarMunicipio(nombre){
     const coords = coordenadasMunicipios[nombre];
-    if (!coords) {
-        alert("Este municipio no tiene coordenadas definidas.");
-        return;
+    if(!coords) { alert('No hay coordenadas para este municipio'); return; }
+    map.setView(coords, 14);
+  }
+
+  /* -----------------------------------------------------------
+     ZONAS: render y detalle
+     ----------------------------------------------------------- */
+  function renderZonasTable(){
+    const wrapper = document.getElementById('zonasTableWrapper');
+    wrapper.innerHTML = '';
+    // construir tabla: departamento, municipio, zona, consumo total, costo total
+    const tabla = document.createElement('table');
+    tabla.innerHTML = `<thead><tr><th>Departamento</th><th>Municipio</th><th>Zona</th><th>Consumo kWh</th><th>Valor kWh</th><th>Costo COP</th><th>Acción</th></tr></thead>`;
+    const tbody = document.createElement('tbody');
+
+    // agrupar
+    const agg = {};
+    for(const it of inventario){
+      const key = `${it.departamento}|${it.municipio}|${it.zona}`;
+      agg[key] = agg[key]||{departamento:it.departamento, municipio:it.municipio, zona:it.zona, consumo:0, costoKwh:it.costoKwh};
+      agg[key].consumo += it.consumoMensualKwh;
     }
-    map.setView(coords, 15);
-}
-
-
-/* =====================================================
-   SISTEMA MUNICIPIOS Y ZONAS
-   ===================================================== */
-const valorKwh = 620;
-
-const departamentos = {
-    "Cundinamarca": {
-        "Zipaquirá": { zonas: { "Zona 1": 420, "Zona 2": 260 } },
-        "Chía":       { zonas: { "Zona 1": 300, "Zona 2": 180, "Zona 3": 150 } },
-        "Girardot":   { zonas: { "Zona 1": 500, "Zona 2": 340 } }
-    },
-    "Tolima": {
-        "Ibagué": { zonas: { "Zona 1": 650, "Zona 2": 430 } },
-        "Espinal": { zonas: { "Zona 1": 300, "Zona 2": 190 } },
-        "Melgar": { zonas: { "Zona 1": 250, "Zona 2": 170 } }
-    },
-    "Boyacá": {
-        "Tunja": { zonas: { "Zona 1": 400, "Zona 2": 280, "Zona 3": 200 } },
-        "Duitama": { zonas: { "Zona 1": 350, "Zona 2": 230 } },
-        "Sogamoso": { zonas: { "Zona 1": 300, "Zona 2": 260 } }
+    for(const val of Object.values(agg)){
+      const costo = val.consumo * val.costoKwh;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${val.departamento}</td><td>${val.municipio}</td><td>${val.zona}</td><td>${val.consumo}</td><td>${val.costoKwh} COP</td><td>${costo.toLocaleString('es-CO')} COP</td><td><button class="btn small" onclick="verZona('${val.departamento}','${val.municipio}','${val.zona}')">Ver</button></td>`;
+      tbody.appendChild(tr);
     }
-};
+    tabla.appendChild(tbody);
+    wrapper.appendChild(tabla);
+  }
 
+  function mostrarZonasMunicipio(depto,mun){
+    mostrarSeccion('zonas');
+    renderZonasTable();
+    // centrar
+    if(coordenadasMunicipios[mun]) map.setView(coordenadasMunicipios[mun],13);
+  }
 
-/* =====================================================
-   MOSTRAR / OCULTAR
-   ===================================================== */
-function mostrarMunicipios() {
-    document.getElementById("seccionMunicipios").classList.remove("oculto");
-    document.getElementById("seccionZonas").classList.add("oculto");
-}
+  function verZona(depto,mun,zona){
+    // mostrar lista luminarias de la zona
+    const lista = inventario.filter(i=> i.departamento===depto && i.municipio===mun && i.zona===zona);
+    const contenido = lista.map(i=> `<div style="margin-bottom:8px"><strong>${i.nombre}</strong><br/><small>${i.tipo} ${i.potenciaW}W • ${i.consumoMensualKwh} kWh • ${i.estado}</small> <br/><button class="btn small" onclick="verFicha(${i.id})">Ficha</button></div>`).join('');
+    alert(`Luminarias en ${mun} - ${zona}:\n\n` + lista.map(l=> `${l.nombre} — ${l.tipo} ${l.potenciaW}W — ${l.estado}`).join('\n'));
+  }
 
-function mostrarZonas() {
-    document.getElementById("seccionMunicipios").classList.add("oculto");
-    document.getElementById("seccionZonas").classList.remove("oculto");
-}
+  /* -----------------------------------------------------------
+     FICHA TÉCNICA (RETLAP) y visualización
+     ----------------------------------------------------------- */
+  function verFicha(id){
+    const item = inventario.find(x=> x.id===id);
+    if(!item) return;
+    // actualizar panel de ficha
+    const ficha = document.getElementById('fichaDetalle');
+    ficha.innerHTML = `
+      <div><b>${item.nombre}</b> <small>(${item.codigoSIAP})</small></div>
+      <div style="margin-top:6px"><b>Ubicación:</b> ${item.departamento} / ${item.municipio} / ${item.zona}</div>
+      <div><b>Coordenadas:</b> ${item.coords[0].toFixed(5)}, ${item.coords[1].toFixed(5)}</div>
+      <div><b>Tipo:</b> ${item.tipo} • <b>Potencia:</b> ${item.potenciaW} W • <b>Flujo:</b> ${item.flujoLm} lm</div>
+      <div><b>Altura montaje:</b> ${item.alturaM} m • <b>Fecha instalación:</b> ${item.fecha_instalacion}</div>
+      <div><b>Vida útil (años):</b> ${item.vida_util} • <b>Curva:</b> ${item.curva_fotometrica}</div>
+      <div style="margin-top:6px"><b>Estado:</b> <span class="badge ${item.estado==='activa'?'status-active':'status-fallo'}">${item.estado}</span></div>
+      <div style="margin-top:6px"><b>Consumo mensual:</b> ${item.consumoMensualKwh} kWh • <b>Costo mensual:</b> ${item.costoMensual.toLocaleString('es-CO')} COP</div>
+      <div style="margin-top:8px"><b>Observaciones:</b> ${item.observaciones||'-'}</div>
+      <div style="margin-top:8px">
+        <button class="btn small" onclick="centrarEn(${item.coords[0]},${item.coords[1]})">Centrar en mapa</button>
+        <button class="btn small secondary" onclick="mostrarMantenimiento(${item.id})">Ver mantenimiento</button>
+        <button class="btn small ghost" onclick="editarEstado(${item.id})">Cambiar estado</button>
+      </div>
+    `;
+    mostrarMantenimiento(item.id);
+  }
 
+  function editarEstado(id){
+    const item = inventario.find(x=> x.id===id);
+    if(!item) return;
+    const nuevo = prompt("Nuevo estado (activa / fallo / apagada / intermitente / robo):", item.estado);
+    if(!nuevo) return;
+    item.estado = nuevo.trim();
+    // recalcular marker
+    dibujarInventarioEnMapa();
+    verFicha(id);
+  }
 
-/* =====================================================
-   LISTA MUNICIPIOS
-   ===================================================== */
-let municipioDiv = document.getElementById("municipios");
-
-for (const [departamento, muniObj] of Object.entries(departamentos)) {
-    municipioDiv.innerHTML += `<h3 style="color:#003366">${departamento}</h3>`;
-
-    for (const [municipio, data] of Object.entries(muniObj)) {
-
-        let totalConsumo = Object.values(data.zonas).reduce((a, b) => a + b, 0);
-
-        municipioDiv.innerHTML += `
-            <p>
-                <strong style="color:#2b7cff; cursor:pointer"
-                    onclick="centrarMunicipio('${municipio}')">
-                    ${municipio}
-                </strong>: ${totalConsumo} kWh
-            </p>
-        `;
+  /* -----------------------------------------------------------
+     MANTENIMIENTO: ver, agregar
+     ----------------------------------------------------------- */
+  let luminariaSeleccionadaParaMant = null;
+  function mostrarMantenimiento(id){
+    luminariaSeleccionadaParaMant = id;
+    const item = inventario.find(x=> x.id===id);
+    const wrapper = document.getElementById('mantList');
+    if(!item || !item.mantenimiento || item.mantenimiento.length===0){
+      wrapper.innerHTML = `<div class="small">No hay registros de mantenimiento para esta luminaria.</div>`;
+      return;
     }
-}
+    let html = '<div style="max-height:240px;overflow:auto">';
+    html += item.mantenimiento.map(m=> `<div style="margin-bottom:8px"><b>${m.fecha}</b> — ${m.tipo} — ${m.tecnico}<br/><small>${m.obs}</small></div>`).join('');
+    html += '</div>';
+    wrapper.innerHTML = html;
+  }
 
-
-/* =====================================================
-   TABLA ZONAS
-   ===================================================== */
-let tabla = document.querySelector("#tablaZonas tbody");
-
-for (const [departamento, municipios] of Object.entries(departamentos)) {
-    for (const [municipio, data] of Object.entries(municipios)) {
-        for (const [zona, consumo] of Object.entries(data.zonas)) {
-
-            let costo = consumo * valorKwh;
-
-            tabla.innerHTML += `
-                <tr>
-                    <td>${departamento}</td>
-                    <td>${municipio}</td>
-                    <td>${zona}</td>
-                    <td>${consumo}</td>
-                    <td>${valorKwh} COP</td>
-                    <td>${costo.toLocaleString("es-CO")} COP</td>
-                </tr>
-            `;
-        }
+  function agregarMantenimiento(){
+    if(!luminariaSeleccionadaParaMant){
+      alert('Selecciona primero una luminaria haciendo clic en el marcador o en "Ver ficha".');
+      return;
     }
-}
+    const fecha = document.getElementById('mantFecha').value || new Date().toISOString().slice(0,10);
+    const tecnico = document.getElementById('mantTecnico').value || 'Desconocido';
+    const tipo = document.getElementById('mantTipo').value;
+    const obs = document.getElementById('mantObs').value || '';
+    const item = inventario.find(x=> x.id===luminariaSeleccionadaParaMant);
+    item.mantenimiento = item.mantenimiento || [];
+    item.mantenimiento.push({fecha, tipo, tecnico, obs});
+    // actualizar panel
+    mostrarMantenimiento(item.id);
+    // limpiar inputs
+    document.getElementById('mantFecha').value = '';
+    document.getElementById('mantTecnico').value = '';
+    document.getElementById('mantObs').value = '';
+    alert('Registro de mantenimiento agregado.');
+  }
 
-</script>
+  /* -----------------------------------------------------------
+     EXPORTAR SIAP: JSON y CSV
+     ----------------------------------------------------------- */
+  function exportSIAPJSON(){
+    // Construir arreglo con campos relevantes SIAP + ficha RETILAP
+    const payload = inventario.map(i=> ({
+      codigo_siap: i.codigoSIAP,
+      departamento: i.departamento,
+      municipio: i.municipio,
+      zona: i.zona,
+      nombre: i.nombre,
+      lat: i.coords[0],
+      lon: i.coords[1],
+      tipo_luminaria: i.tipo,
+      potencia_w: i.potenciaW,
+      flujo_lm: i.flujoLm,
+      altura_m: i.alturaM,
+      curva_fotometrica: i.curva_fotometrica,
+      fecha_instalacion: i.fecha_instalacion,
+      vida_util_anos: i.vida_util,
+      estado: i.estado,
+      consumo_mensual_kwh: i.consumoMensualKwh,
+      costo_kwh_cop: i.costoKwh,
+      costo_mensual_cop: i.costoMensual,
+      observaciones: i.observaciones,
+      mantenimiento: i.mantenimiento || []
+    }));
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inventario_siap.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
+  function exportSIAPCSV(){
+    const keys = ["codigo_siap","departamento","municipio","zona","nombre","lat","lon","tipo_luminaria","potencia_w","flujo_lm","altura_m","curva_fotometrica","fecha_instalacion","vida_util_anos","estado","consumo_mensual_kwh","costo_kwh_cop","costo_mensual_cop","observaciones"];
+    const rows = inventario.map(i => {
+      return {
+        codigo_siap:i.codigoSIAP, departamento:i.departamento, municipio:i.municipio, zona:i.zona,
+        nombre:i.nombre, lat:i.coords[0], lon:i.coords[1], tipo_luminaria:i.tipo,
+        potencia_w:i.potenciaW, flujo_lm:i.flujoLm, altura_m:i.alturaM, curva_fotometrica:i.curva_fotometrica,
+        fecha_instalacion:i.fecha_instalacion, vida_util_anos:i.vida_util, estado:i.estado,
+        consumo_mensual_kwh:i.consumoMensualKwh, costo_kwh_cop:i.costoKwh, costo_mensual_cop:i.costoMensual,
+        observaciones: (i.observaciones||'').replace(/\n/g,' ')
+      };
+    });
+    let csv = keys.join(',') + '\n';
+    for(const r of rows){
+      csv += keys.map(k=> `"${String(r[k]===undefined?'':r[k]).replace(/"/g,'""')}"`).join(',') + '\n';
+    }
+    const blob = new Blob([csv], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inventario_siap.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /* -----------------------------------------------------------
+     BÚSQUEDA / FILTRADO
+     ----------------------------------------------------------- */
+  function filtrarInventario(){
+    const q = document.getElementById('search').value.toLowerCase().trim();
+    const results = inventario.filter(i => {
+      return i.nombre.toLowerCase().includes(q) ||
+             i.municipio.toLowerCase().includes(q) ||
+             i.zona.toLowerCase().includes(q) ||
+             (i.codigoSIAP && i.codigoSIAP.toLowerCase().includes(q)) ||
+             i.departamento.toLowerCase().includes(q);
+    });
+    const wrapper = document.getElementById('searchResults');
+    if(!q){ wrapper.innerHTML=''; return; }
+    if(results.length===0) wrapper.innerHTML = '<div class="small">No se encontraron coincidencias.</div>';
+    else wrapper.innerHTML = results.slice(0,10).map(r=> `<div style="margin-bottom:8px"><strong style="cursor:pointer;color:var(--accent)" onclick="verFicha(${r.id})">${r.nombre}</strong><br/><small>${r.municipio} • ${r.zona} • ${r.codigoSIAP}</small></div>`).join('');
+  }
+
+  /* -----------------------------------------------------------
+     COMPROBACIÓN FOTOMÉTRICA (simplificada)
+     ----------------------------------------------------------- */
+  function comprobarFotometria(item){
+    // ejemplo simple: si flujo por altura / potencia cumple un umbral -> true
+    // Este es un chequeo orientativo: en proyectos reales usar curvas y software fotométrico
+    const flujoRelativo = item.flujoLm / (item.alturaM * 10);
+    // si flujoRelativo mayor a 1500 consideramos aceptable (valor arbitrario)
+    return flujoRelativo >= 1500;
+  }
+
+  /* -----------------------------------------------------------
+     Inicial render
+     ----------------------------------------------------------- */
+  renderMunicipios();
+
+  // Para accesibilidad: exponer algunas funciones al scope global (usadas en markup)
+  window.centrarMunicipio = centrarMunicipio;
+  window.verFicha = verFicha;
+  window.mostrarSeccion = mostrarSeccion;
+  window.mostrarZonasMunicipio = mostrarZonasMunicipio;
+  window.verZona = verZona;
+  window.exportSIAPJSON = exportSIAPJSON;
+  window.exportSIAPCSV = exportSIAPCSV;
+  window.centrarEn = centrarEn;
+  window.editarEstado = editarEstado;
+  window.agregarMantenimiento = agregarMantenimiento;
+
+  </script>
 </body>
 </html>
