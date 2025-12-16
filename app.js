@@ -251,3 +251,5 @@ function estadoAIcono(estado){
   if(estado==='robo') return iconoBlue;
   return iconoBlue;
 }
+document.getElementById("app")
+
