@@ -3,795 +3,93 @@
 <head>
   <meta charset="utf-8" />
   <title>Mapa + Sistema de Alumbrado (RETLAP + SIAP)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-  <style>
-    /* -------------------------
-       Global + Auth styles
-       ------------------------- */
-    :root{
-      --accent:#1f6feb;
-      --accent-600:#165fcc;
-      --bg:#000000;
-      --card:#ffffff;
-      --muted:#667;
-      --danger:#c9030d;
-      --glass: rgba(255,255,255,0.7);
-    }
-    html,body{height:100%;margin:0;font-family:Inter, Arial, Helvetica, sans-serif;background:var(--bg);color:#0f1724;-webkit-font-smoothing:antialiased}
-    /* Background stars and space */
-    body::before{
-      content:"";
-      position:fixed;inset:0;
-      background: radial-gradient(ellipse at bottom, rgba(10,12,20,0.6), transparent 40%), linear-gradient(#020417,#071028 60%);
-      z-index:-3;
-    }
-    /* star field */
-    .stars, .stars2, .stars3{
-      position:fixed;inset:0;z-index:-2;pointer-events:none;
-      background-repeat: repeat;
-    }
-    .stars{ background-image: radial-gradient(white 0.8px, rgba(255,255,255,0) 1px); background-size: 120px 120px; opacity:0.45; }
-    .stars2{ background-image: radial-gradient(white 0.6px, rgba(255,255,255,0) 1px); background-size: 60px 60px; opacity:0.25; transform: scale(1.8); }
-    .stars3{ background-image: radial-gradient(white 1px, rgba(255,255,255,0) 1px); background-size: 200px 200px; opacity:0.12; transform: scale(0.9); }
-
-    /* auth container (centered) */
-    #authContainer{
-      max-width:360px;margin:60px auto;padding:18px;color:white;position:relative;z-index:5;
-    }
-    .auth-input {
-      width: 100%; padding: 10px; margin-top: 10px; border-radius: 6px; border: none; background: rgba(255,255,255,0.03); color: white;
-    }
-    .auth-btn { width: 100%; padding: 12px; margin-top: 15px; background: #238636; border: none; border-radius: 6px; color: white; font-size: 16px; cursor: pointer; }
-    .auth-link { margin-top: 12px; text-align: center; font-size: 14px; cursor: pointer; color: #58a6ff; }
-    /* small auth box look */
-    #authContainer .box{
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-      border-radius:12px;padding:18px;border:1px solid rgba(255,255,255,0.04);
-      box-shadow:0 8px 30px rgba(2,6,23,0.6);
-    }
-    h2{margin:0 0 8px 0;color:#fff;text-align:center}
-
-    /* -------------------------
-       App layout & styles
-       ------------------------- */
-    .app { display:grid; grid-template-columns: 400px 1fr; gap:16px; height:calc(100vh - 32px); padding:16px; box-sizing:border-box; position:relative; z-index:1; }
-    @media (max-width:980px){ .app{ grid-template-columns: 1fr; grid-auto-rows: auto; height:auto; padding:12px } .panel#mainPanel{order:2} .panel#sidebar{order:1} }
-
-    .panel { background:var(--card); border-radius:12px; padding:14px; box-shadow:0 8px 26px rgba(15,25,40,0.06); overflow:auto; }
-    header{display:flex;gap:12px;align-items:center}
-    header h1{margin:0;font-size:16px;color:var(--accent)}
-    header p{margin:0;font-size:13px;color:var(--muted)}
-    .small { font-size:13px; color:var(--muted) }
-    .controls-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:10px }
-    .btn { display:inline-flex; gap:8px; align-items:center; justify-content:center; padding:8px 12px; border-radius:10px; background:var(--accent); color:#fff; text-decoration:none; cursor:pointer; border:none; font-size:13px; box-shadow:0 6px 14px rgba(31,111,235,0.12) }
-    .btn.small{ padding:6px 9px; font-size:13px }
-    .btn.secondary { background:var(--accent-600); box-shadow:none }
-    .btn.ghost { background:transparent;color:var(--accent); border:1px solid #e6eefc; box-shadow:none }
-    .btn.icon { padding:8px; width:40px; height:40px; border-radius:10px; }
-    .btn.group { display:flex; gap:8px; flex-wrap:wrap; }
-    .right { margin-left:auto }
-    h3{margin:8px 0 12px 0;color:#123;font-size:15px}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{padding:10px;border-bottom:1px solid #f1f6ff;text-align:left}
-    th{background:#fbfdff;color:#123;font-weight:600}
-    .badge { display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;background:#eef3ff;color:#123 }
-    .status-active{background:#e6f5ea;color:#0b7a2a}
-    .status-fallo{background:#ffecea;color:#c9030d}
-    .status-apagada{background:#fff4e6;color:#b85a00}
-    .panel .card { background:linear-gradient(180deg, rgba(255,255,255,0.95), #fff); border-radius:10px; padding:10px; margin-bottom:12px; box-shadow:0 4px 14px rgba(10,30,60,0.04) }
-    textarea,input,select{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eefc;box-sizing:border-box;font-size:13px}
-    .hidden{display:none}
-    .map-wrapper { transition: max-height 360ms ease, opacity 360ms ease; overflow:hidden; border-radius:10px; }
-    #mapContainer { max-height: 0; opacity:0; }
-    #mapContainer.open { max-height: calc(100vh - 180px); opacity:1; }
-    #map { width:100%; height:100%; min-height:320px; border-radius:10px; }
-    .toolbar { display:flex; gap:8px; align-items:center; margin:10px 0; flex-wrap:wrap }
-    .searchRow { display:flex; gap:8px; align-items:center; margin-top:8px }
-    .searchRow input{flex:1}
-    .footer { font-size:12px;color:var(--muted);margin-top:8px }
-    .muted-small{font-size:12px;color:var(--muted)}
-    .collapse { cursor:pointer; display:flex; align-items:center; gap:8px; }
-    .actions-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-    .mun-list div{ padding:8px;border-radius:8px;margin-bottom:8px;background:linear-gradient(180deg,#fff,#fbfdff);display:flex;align-items:center;justify-content:space-between;border:1px solid #f1f7ff }
-    .mun-list strong{cursor:pointer;color:var(--accent)}
-    .muted-quiet{color:#9aa3b2;font-size:13px}
-
-    /* logout */
-    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
-
-    /* small responsive tweaks */
-    @media (max-width:600px){
-      #authContainer { margin:20px 12px; }
-      .app { padding:8px; gap:8px }
-    }
-
-    
-    /* small utility */
-    .center { display:flex; align-items:center; justify-content:center; }
-  </style>
+  <!-- CSS principal -->
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <!-- decorative stars -->
+  <!-- Fondo estrellas -->
   <div class="stars"></div>
   <div class="stars2"></div>
   <div class="stars3"></div>
 
-  <!-- suns decorative -->
-  <div class="suns-wrap" aria-hidden="true">
-    <div class="orbit">
-      <div class="sun back"></div>
-      <div class="sun mid" style="left:30%;top:40%"></div>
-      <div class="sun front" style="left:65%;top:55%"></div>
-    </div>
-  </div>
-
-  <!-- --------------------
-       AUTH: Login & Register (visible until login)
-       -------------------- -->
+  <!-- ================= AUTH ================= -->
   <div id="authContainer" class="center">
-    <div class="box" style="width:100%;max-width:380px;">
-      <!-- LOGIN -->
+    <div class="box">
       <div id="loginBoxAuth">
         <h2>Iniciar Sesión</h2>
-        <input type="email" id="authLoginEmail" placeholder="Correo" class="auth-input" autocomplete="username">
-        <input type="password" id="authLoginPass" placeholder="Contraseña" class="auth-input" autocomplete="current-password">
+        <input type="email" id="authLoginEmail" placeholder="Correo" class="auth-input">
+        <input type="password" id="authLoginPass" placeholder="Contraseña" class="auth-input">
         <button class="auth-btn" onclick="authLogin()">Ingresar</button>
-        <div class="auth-link" onclick="authShowRegister()">¿No tienes una cuenta? Regístrate</div>
+        <div class="auth-link" onclick="authShowRegister()">¿No tienes cuenta?</div>
       </div>
 
-      <!-- REGISTER -->
-      <div id="registerBoxAuth" style="display:none; margin-top:6px;">
+      <div id="registerBoxAuth" style="display:none">
         <h2>Registrarse</h2>
-        <input type="text" id="authRegNombre" placeholder="Nombre completo" class="auth-input">
+        <input type="text" id="authRegNombre" placeholder="Nombre" class="auth-input">
         <input type="email" id="authRegEmail" placeholder="Correo" class="auth-input">
         <input type="password" id="authRegPass" placeholder="Contraseña" class="auth-input">
         <button class="auth-btn" onclick="authRegister()">Crear cuenta</button>
-        <div class="auth-link" onclick="authShowLogin()">¿Ya tienes cuenta? Inicia sesión</div>
+        <div class="auth-link" onclick="authShowLogin()">Iniciar sesión</div>
       </div>
     </div>
   </div>
 
-  <!-- --------------------
-       APP (oculto hasta autenticación)
-       -------------------- -->
-  <div id="appContent" style="display:none;">
+  <!-- ================= APP ================= -->
+  <div id="appContent" style="display:none">
     <div class="app">
 
-      <!-- LATERAL -->
+      <!-- SIDEBAR -->
       <div class="panel" id="sidebar">
         <header>
-          <svg width="30" height="30" viewBox="0 0 34 34" fill="none" style="flex-shrink:0">
-            <path d="M12 2L15 8H9L12 2Z" fill="var(--accent)"/>
-            <path d="M4 22H20V10H4V22Z" fill="#dfeeff"/>
-          </svg>
-          <div>
-            <h1>Sistema Alumbrado</h1>
-            <p class="small"> Municipios ejemplo</p>
-          </div>
-          <div class="right muted-small">Versión demo</div>
+          <h1>Sistema Alumbrado</h1>
+          <span class="small">Versión demo</span>
         </header>
 
-        <div class="toolbar" style="margin-top:12px">
-          <button class="btn icon" id="toggleMapBtn" title="Abrir / cerrar mapa" onclick="toggleMap()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5C7 5 2.73 8.11 1 12c1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7z" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="#fff" stroke-width="1.4"/></svg>
-          </button>
-
-          <div class="btn group" style="background:transparent;padding:0">
-            <button class="btn small" onclick="mostrarSeccion('inventario')">Inventario</button>
-            <button class="btn small" onclick="mostrarSeccion('zonas')">Zonas</button>
-            <button class="btn small" onclick="mostrarSeccion('siap')">Export SIAP</button>
-            <button class="btn small" onclick="mostrarSeccion('normativas')">normativas </button>
-          </div>
-
-          <div class="right">
-            <button class="btn ghost small" onclick="centrarMapaDefault()">
-              <svg width="14" height="14" viewBox="0 0 24 24" style="margin-right:6px"><path d="M12 2v6l4-2z" stroke="var(--accent)" stroke-width="1.5" fill="none"/></svg>
-              Centrar
-            </button>
-          </div>
+        <div class="toolbar">
+          <button class="btn icon" id="toggleMapBtn" onclick="toggleMap()">Mapa</button>
+          <button class="btn small" onclick="mostrarSeccion('inventario')">Inventario</button>
+          <button class="btn small" onclick="mostrarSeccion('zonas')">Zonas</button>
+          <button class="btn small" onclick="mostrarSeccion('siap')">SIAP</button>
         </div>
 
-        <!-- Secciones -->
-        <div id="inventario" class="section">
-          <h3>Municipios</h3>
-          <div class="muted-quiet" style="margin-bottom:8px">Resumen por departamento y consumo</div>
-          <div id="municipiosList" class="mun-list"></div>
-        </div>
-
-        <div id="zonas" class="section hidden">
-          <h3>Consumo por Zonas</h3>
-          <div id="zonasTableWrapper"></div>
-        </div>
-
-        <div id="siap" class="section hidden">
-          <h3>Exportar Inventario (SIAP)</h3>
-          <p class="small">Genera archivo JSON/CSV con formato SIAP-like.</p>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="btn small" onclick="exportSIAPJSON()">Exportar JSON</button>
-            <button class="btn small secondary" onclick="exportSIAPCSV()">Exportar CSV</button>
-          </div>
-          <div class="footer">Nota: el JSON exportado incluye ficha técnica RETILAP y campos requeridos por SIAP.</div>
-        </div>
-
-        <div id="normativas" class="section hidden">
-          <h3>Normativas y Estándares</h3>
-          <p class="small">Información sobre normativas aplicables al sistema de alumbrado público.</p>
-          <ul><li>poner las normativas de la empresa</li></ul>
-        </div>
-
-        <hr style="border:none;border-top:1px solid #eef4ff;margin:12px 0" />
-        <div>
-          <h3>Detalles / Buscar</h3>
-          <div class="searchRow">
-            <input id="search" placeholder="Buscar por municipio, zona, código SIAP o luminaria" oninput="filtrarInventario()" />
-            <button class="btn ghost" onclick="document.getElementById('search').value=''; filtrarInventario()">Limpiar</button>
-          </div>
-          <div id="searchResults" style="margin-top:8px"></div>
-        </div>
-
-        <div style="height:8px"></div>
-        <div class="muted-small">Acciones rápidas</div>
-        <div class="actions-row">
-          <button class="btn ghost small" onclick="mostrarSeccion('inventario')">Ver inventario</button>
-          <button class="btn ghost small" onclick="mostrarSeccion('zonas')">Ver zonas</button>
-          <button class="btn ghost small" onclick="exportSIAPJSON()">Exportar</button>
-        </div>
-
+        <div id="inventario" class="section"></div>
+        <div id="zonas" class="section hidden"></div>
+        <div id="siap" class="section hidden"></div>
       </div>
 
-      <!-- MAPA + PANEL PRINCIPAL -->
+      <!-- PANEL PRINCIPAL -->
       <div class="panel" id="mainPanel">
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:12px">
-              <h3 style="margin:0">Mapa interactivo & Ficha</h3>
-              <div class="muted-small">Haz clic en un marcador para ver la ficha técnica</div>
-            </div>
-          </div>
-          <div class="right muted-small">
-            <button class="btn ghost small" onclick="logout()">Cerrar sesión</button>
-          </div>
+        <div class="topbar">
+          <h3>Mapa interactivo</h3>
+          <button class="btn ghost small" onclick="logout()">Cerrar sesión</button>
         </div>
 
-        <!-- MAP WRAPPER (ocultable) -->
-        <div class="map-wrapper" style="margin-top:12px">
-          <div id="mapContainer" class="" aria-hidden="true">
+        <div class="map-wrapper">
+          <div id="mapContainer">
             <div id="map"></div>
           </div>
         </div>
 
-        <!-- Panels abajo -->
-        <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
-          <div style="flex:1;min-width:260px">
-            <div class="card">
-              <h3 style="margin:0 0 8px 0">Ficha luminaria seleccionada</h3>
-              <div id="fichaDetalle">
-                <div class="small">Haz clic en un marcador para ver la ficha técnica</div>
-              </div>
-            </div>
-          </div>
-
-          <div style="width:360px;min-width:260px">
-            <!-- aquí puedes añadir paneles adicionales -->
-          </div>
+        <div class="card">
+          <h3>Ficha luminaria</h3>
+          <div id="fichaDetalle"></div>
         </div>
-
       </div>
+
     </div>
   </div>
 
   <!-- Leaflet -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <script>
-  /* ===========================================================
-     AUTENTICACIÓN (login/register) - localStorage
-     =========================================================== */
-  let users = JSON.parse(localStorage.getItem("users") || "[]");
+  <!-- JS principal -->
+  <script src="app.js"></script>
 
-  // Si existe sesión, mostramos app; si no, mostramos auth
-  function checkAuthOnLoad(){
-    const auth = localStorage.getItem("auth") === "true";
-    if(auth){
-      document.getElementById('authContainer').style.display = 'none';
-      document.getElementById('appContent').style.display = 'block';
-    } else {
-      document.getElementById('authContainer').style.display = 'flex';
-      document.getElementById('appContent').style.display = 'none';
-    }
-  }
-  checkAuthOnLoad();
-
-  function authShowRegister() {
-    document.getElementById("loginBoxAuth").style.display = "none";
-    document.getElementById("registerBoxAuth").style.display = "block";
-  }
-
-  function authShowLogin() {
-    document.getElementById("registerBoxAuth").style.display = "none";
-    document.getElementById("loginBoxAuth").style.display = "block";
-  }
-
-  function authRegister() {
-    const nombre = document.getElementById("authRegNombre").value.trim();
-    const email = document.getElementById("authRegEmail").value.trim().toLowerCase();
-    const pass = document.getElementById("authRegPass").value.trim();
-
-    if (!nombre || !email || !pass) { alert("Completa todos los campos"); return; }
-
-    if (users.some(u => u.email === email)) { alert("Este correo ya está registrado"); return; }
-
-    users.push({ nombre, email, pass });
-    localStorage.setItem("users", JSON.stringify(users));
-    alert("Registro exitoso ✔ Ahora inicia sesión");
-    authShowLogin();
-  }
-
-  function authLogin() {
-    const email = document.getElementById("authLoginEmail").value.trim().toLowerCase();
-    const pass = document.getElementById("authLoginPass").value.trim();
-
-    if (!email || !pass) { alert("Completa todos los campos"); return; }
-
-    const user = users.find(u => u.email === email && u.pass === pass);
-    if (!user) { alert("Correo o contraseña incorrectos"); return; }
-
-    localStorage.setItem("auth", "true");
-    document.getElementById('authContainer').style.display = 'none';
-    document.getElementById('appContent').style.display = 'block';
-  }
-
-  function logout(){
-    localStorage.removeItem("auth");
-    // optionally clear UI state
-    location.reload();
-  }
-
-  /* ===========================================================
-     DATOS E INVENTARIO
-     =========================================================== */
-  const coordenadasMunicipios = {
-    "Zipaquirá":[5.0221, -73.9947],
-    "Chía": [4.8588, -74.058],
-    "Girardot": [4.3008, -74.8034],
-    "Ibagué": [4.4447, -75.2424],
-    "Espinal": [4.1492, -74.8843],
-    "Melgar": [4.2044, -74.6407],
-    "Tunja": [5.5353, -73.3678],
-    "Duitama": [5.8269, -73.0347],
-    "Sogamoso": [5.7204, -72.9333]
-  };
-
-  const nivelMinimoPorVia = {
-    "residencial": 5,
-    "intersección": 20,
-    "avenida": 10,
-    "carretera": 7
-  };
-
-  function generarCodigoSIAP(municipio,zona,serial){
-    const m = municipio.slice(0,3).toUpperCase().replace(/\s/g,'');
-    const z = zona.replace(/\s/g,'').toUpperCase();
-    const s = String(serial).padStart(4,'0');
-    return `SIAP-${m}-${z}-${s}`;
-  }
-
-  let inventario = [
-    {
-      id:1, nombre:"Luminaria 001 Zipa - Zona 1", coords:[5.0186,-74.0061], departamento:"Cundinamarca", municipio:"Zipaquirá", zona:"Zona 1",
-      potenciaW:150, tipo:"LED", flujoLm:18000, alturaM:8, fecha_instalacion:"2021-04-12", vida_util:10, curva_fotometrica:"LM79-ref-001",
-      estado:"fallo", consumoMensualKwh:25, observaciones:"Requiere reemplazo de driver",
-      mantenimiento: [{fecha:"2023-05-12", tipo:"inspección", tecnico:"Operador A", obs:"Cambio portalámparas"}]
-    },
-    {
-      id:2, nombre:"Luminaria 002 Zipa - Zona 1", coords:[5.0220,-74.0020], departamento:"Cundinamarca", municipio:"Zipaquirá", zona:"Zona 1",
-      potenciaW:100, tipo:"Sodio", flujoLm:12000, alturaM:7, fecha_instalacion:"2016-09-03", vida_util:8, curva_fotometrica:"NTC-curve-12",
-      estado:"activa", consumoMensualKwh:30, observaciones:"-",
-      mantenimiento: [{fecha:"2024-02-14", tipo:"reparación", tecnico:"Operador B", obs:"Reemplazo balasta"}]
-    },
-    {
-      id:3, nombre:"IGLESIA LA VALVANERA - Chía", coords:[4.86742,-74.04995], departamento:"Cundinamarca", municipio:"Chía", zona:"Centro",
-      potenciaW:200, tipo:"LED", flujoLm:22000, alturaM:10, fecha_instalacion:"2022-06-01", vida_util:12, curva_fotometrica:"LM79-ref-igv",
-      estado:"activa", consumoMensualKwh:45, observaciones:"Foco LED 200W",
-      mantenimiento: []
-    },
-    {
-      id:4, nombre:"Parque Principal Chía", coords:[4.86463,-74.06047], departamento:"Cundinamarca", municipio:"Chía", zona:"Parque",
-      potenciaW:120, tipo:"LED", flujoLm:15000, alturaM:9, fecha_instalacion:"2019-11-20", vida_util:10, curva_fotometrica:"LM79-PARQ",
-      estado:"fallo", consumoMensualKwh:28, observaciones:"Fundamento, pos. 3",
-      mantenimiento: [{fecha:"2025-01-12", tipo:"inspección", tecnico:"Operador C", obs:"Detectada corrosión en brazo"}]
-    },
-    {
-      id:5, nombre:"Luminaria Ibagué 01", coords:[4.4447,-75.2424], departamento:"Tolima", municipio:"Ibagué", zona:"Avenida 1",
-      potenciaW:250, tipo:"LED", flujoLm:30000, alturaM:12, fecha_instalacion:"2020-03-10", vida_util:15, curva_fotometrica:"LM79-IBG-250",
-      estado:"activa", consumoMensualKwh:55, observaciones:"-",
-      mantenimiento: []
-    }
-  ];
-
-  function inicializarInventario(){
-    let serial = 1;
-    for(const item of inventario){
-      item.codigoSIAP = generarCodigoSIAP(item.municipio, item.zona, serial);
-      item.costoKwh = 620; // referencial COP / kWh
-      item.costoMensual = item.consumoMensualKwh * item.costoKwh;
-      serial++;
-    }
-  }
-  inicializarInventario();
-
-  /* -----------------------------------------------------------
-     MAPA LEAFLET - inicializado aunque oculto (llamamos invalidateSize al abrir)
-     ----------------------------------------------------------- */
-  const map = L.map('map', { zoomControl:true, attributionControl:false }).setView([4.9,-74.1], 8);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19 }).addTo(map);
-
-  // Iconos por estado (utilizamos iconos públicos de google maps)
-  function crearIconoColor(color){
-    return new L.Icon({
-      iconUrl: `https://maps.gstatic.com/mapfiles/ms2/micons/${color}-dot.png`,
-      iconSize: [28,28],
-      iconAnchor:[14,28],
-      popupAnchor:[0,-26]
-    });
-  }
-  const iconoVerde = crearIconoColor('green');
-  const iconoRojo = crearIconoColor('red');
-  const iconoAmarillo = crearIconoColor('yellow');
-  const iconoBlue = crearIconoColor('blue');
-  const iconoPurple = crearIconoColor('purple');
-
-  const markers = {};
-
-  function estadoAIcono(estado){
-    if(estado==='activa') return iconoVerde;
-    if(estado==='fallo') return iconoRojo;
-    if(estado==='apagada') return iconoAmarillo;
-    if(estado==='intermitente') return iconoPurple;
-    if(estado==='robo') return iconoBlue;
-    return iconoBlue;
-  }
-
-  function crearPopupHTML(item){
-    const cumplimiento = comprobarFotometria(item) ? '<span class="badge status-active">Cumple fotometría</span>' : '<span class="badge status-fallo">No cumple fotometría</span>';
-    return `
-      <div style="min-width:260px">
-        <strong>${item.nombre}</strong><br/>
-        <small>${item.departamento} / ${item.municipio} / ${item.zona}</small>
-        <hr style="border:none;border-top:1px solid #eef4ff;margin:8px 0" />
-        <div><b>Código SIAP:</b> ${item.codigoSIAP}</div>
-        <div><b>Tipo:</b> ${item.tipo} • <b>Potencia:</b> ${item.potenciaW} W</div>
-        <div><b>Flujo:</b> ${item.flujoLm} lm • <b>Altura:</b> ${item.alturaM} m</div>
-        <div style="margin-top:6px"><b>Estado:</b> <span class="badge ${item.estado==='activa'?'status-active':'status-fallo'}">${item.estado}</span></div>
-        <div style="margin-top:6px">${cumplimiento}</div>
-        <hr style="border:none;border-top:1px solid #eef4ff;margin:8px 0" />
-        <div style="display:flex; gap:8px;">
-           <button class="btn small" onclick="verFicha(${item.id})">Ver ficha</button>
-           <button class="btn ghost small" onclick="centrarEn(${item.coords[0]},${item.coords[1]})">Centrar</button>
-        </div>
-      </div>
-    `;
-  }
-
-  function dibujarInventarioEnMapa(){
-    // limpiar
-    for(const k in markers){
-      try{ map.removeLayer(markers[k]); } catch(e){}
-    }
-    for(const item of inventario){
-      const icon = estadoAIcono(item.estado);
-      const marker = L.marker(item.coords, { icon }).addTo(map);
-      marker.bindPopup(crearPopupHTML(item), { maxWidth:360 });
-      marker.on('click', ()=>verFicha(item.id));
-      markers[item.id] = marker;
-    }
-  }
-  dibujarInventarioEnMapa();
-
-  /* -----------------------------------------------------------
-     UI: secciones, centrar, render municipios/zonas y búsqueda
-     ----------------------------------------------------------- */
-  function mostrarSeccion(id){
-    document.querySelectorAll('.section').forEach(s=>s.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
-    if(id==='inventario') renderMunicipios();
-    if(id==='zonas') renderZonasTable();
-  }
-
-  function centrarMapaDefault(){
-    map.setView([4.9,-74.1],8);
-  }
-
-  function centrarEn(lat,lng){
-    map.setView([lat,lng],16);
-    // abrir mapa si está cerrado
-    const cont = document.getElementById('mapContainer');
-    if(!cont.classList.contains('open')) openMap();
-  }
-
-  function renderMunicipios(){
-    const wrapper = document.getElementById('municipiosList');
-    wrapper.innerHTML = '';
-    const agrup = {};
-    for(const item of inventario){
-      agrup[item.departamento] = agrup[item.departamento]||{};
-      agrup[item.departamento][item.municipio] = agrup[item.departamento][item.municipio]||{consumo:0,zona:{}};
-      agrup[item.departamento][item.municipio].consumo += item.consumoMensualKwh;
-      agrup[item.departamento][item.municipio].zona[item.zona] = (agrup[item.departamento][item.municipio].zona[item.zona]||0) + item.consumoMensualKwh;
-    }
-
-    for(const [dept,munis] of Object.entries(agrup)){
-      const title = document.createElement('div');
-      title.innerHTML = `<div style="margin-top:6px;margin-bottom:6px;font-weight:700;color:#123">${dept}</div>`;
-      wrapper.appendChild(title);
-      for(const [mun,info] of Object.entries(munis)){
-        const p = document.createElement('div');
-        p.innerHTML = `<div style="display:flex;align-items:center;gap:8px">
-          <div style="flex:1"><strong style="cursor:pointer;color:var(--accent)" onclick="centrarMunicipio('${mun}')">${mun}</strong><br/><small class="muted-small">${info.consumo} kWh</small></div>
-          <div><button class="btn small" onclick="mostrarZonasMunicipio('${dept}','${mun}')">Ver zonas</button></div>
-        </div>`;
-        wrapper.appendChild(p);
-      }
-    }
-  }
-
-  function centrarMunicipio(nombre){
-    const coords = coordenadasMunicipios[nombre];
-    if(!coords) { alert('No hay coordenadas para este municipio'); return; }
-    map.setView(coords, 13);
-    // abrir mapa si estaba oculto
-    const cont = document.getElementById('mapContainer');
-    if(!cont.classList.contains('open')) openMap();
-  }
-
-  function renderZonasTable(){
-    const wrapper = document.getElementById('zonasTableWrapper');
-    wrapper.innerHTML = '';
-    const tabla = document.createElement('table');
-    tabla.innerHTML = `<thead><tr><th>Departamento</th><th>Municipio</th><th>Zona</th><th>Consumo kWh</th><th>Valor kWh</th><th>Costo COP</th><th>Acción</th></tr></thead>`;
-    const tbody = document.createElement('tbody');
-
-    const agg = {};
-    for(const it of inventario){
-      const key = `${it.departamento}|${it.municipio}|${it.zona}`;
-      agg[key] = agg[key]||{departamento:it.departamento, municipio:it.municipio, zona:it.zona, consumo:0, costoKwh:it.costoKwh};
-      agg[key].consumo += it.consumoMensualKwh;
-    }
-    for(const val of Object.values(agg)){
-      const costo = val.consumo * val.costoKwh;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${val.departamento}</td><td>${val.municipio}</td><td>${val.zona}</td><td>${val.consumo}</td><td>${val.costoKwh} COP</td><td>${costo.toLocaleString('es-CO')} COP</td><td><button class="btn small" onclick="verZona('${val.departamento}','${val.municipio}','${val.zona}')">Ver</button></td>`;
-      tbody.appendChild(tr);
-    }
-    tabla.appendChild(tbody);
-    wrapper.appendChild(tabla);
-  }
-
-  function mostrarZonasMunicipio(depto,mun){
-    mostrarSeccion('zonas');
-    renderZonasTable();
-    if(coordenadasMunicipios[mun]) map.setView(coordenadasMunicipios[mun],13);
-    // abrir mapa
-    openMap();
-  }
-
-  function verZona(depto,mun,zona){
-    const lista = inventario.filter(i=> i.departamento===depto && i.municipio===mun && i.zona===zona);
-    const texto = lista.map(l=> `${l.nombre} — ${l.tipo} ${l.potenciaW}W — ${l.estado}`).join('\n');
-    alert(`Luminarias en ${mun} - ${zona}:\n\n` + texto);
-  }
-
-  /* -----------------------------------------------------------
-     FICHA TÉCNICA y mantenimiento
-     ----------------------------------------------------------- */
-  function verFicha(id){
-    const item = inventario.find(x=> x.id===id);
-    if(!item) return;
-    const ficha = document.getElementById('fichaDetalle');
-    ficha.innerHTML = `
-      <div><b>${item.nombre}</b> <small>(${item.codigoSIAP})</small></div>
-      <div style="margin-top:6px"><b>Ubicación:</b> ${item.departamento} / ${item.municipio} / ${item.zona}</div>
-      <div><b>Coordenadas:</b> ${item.coords[0].toFixed(5)}, ${item.coords[1].toFixed(5)}</div>
-      <div><b>Tipo:</b> ${item.tipo} • <b>Potencia:</b> ${item.potenciaW} W • <b>Flujo:</b> ${item.flujoLm} lm</div>
-      <div><b>Altura montaje:</b> ${item.alturaM} m • <b>Fecha instalación:</b> ${item.fecha_instalacion}</div>
-      <div><b>Vida útil (años):</b> ${item.vida_util} • <b>Curva:</b> ${item.curva_fotometrica}</div>
-      <div style="margin-top:6px"><b>Estado:</b> <span class="badge ${item.estado==='activa'?'status-active':'status-fallo'}">${item.estado}</span></div>
-      <div style="margin-top:6px"><b>Consumo mensual:</b> ${item.consumoMensualKwh} kWh • <b>Costo mensual:</b> ${item.costoMensual.toLocaleString('es-CO')} COP</div>
-      <div style="margin-top:8px"><b>Observaciones:</b> ${item.observaciones||'-'}</div>
-      <div style="margin-top:8px;display:flex;gap:8px">
-        <button class="btn small" onclick="centrarEn(${item.coords[0]},${item.coords[1]})">Centrar en mapa</button>
-        <button class="btn small secondary" onclick="mostrarMantenimiento(${item.id})">Ver mantenimiento</button>
-        <button class="btn small ghost" onclick="editarEstado(${item.id})">Cambiar estado</button>
-      </div>
-    `;
-    mostrarMantenimiento(item.id);
-    // abrir mapa para ver la ubicación
-    openMap();
-  }
-
-  function editarEstado(id){
-    const item = inventario.find(x=> x.id===id);
-    if(!item) return;
-    const nuevo = prompt("Nuevo estado (activa / fallo / apagada / intermitente / robo):", item.estado);
-    if(!nuevo) return;
-    item.estado = nuevo.trim();
-    dibujarInventarioEnMapa();
-    verFicha(id);
-  }
-
-  /* -----------------------------------------------------------
-     MANTENIMIENTO
-     ----------------------------------------------------------- */
-  let luminariaSeleccionadaParaMant = null;
-  function mostrarMantenimiento(id){
-    luminariaSeleccionadaParaMant = id;
-    const item = inventario.find(x=> x.id===id);
-    const wrapper = document.getElementById('mantList');
-    if(!item || !item.mantenimiento || item.mantenimiento.length===0){
-      wrapper.innerHTML = `<div class="small">No hay registros de mantenimiento para esta luminaria.</div>`;
-      return;
-    }
-    let html = '<div style="max-height:240px;overflow:auto">';
-    html += item.mantenimiento.map(m=> `<div style="margin-bottom:8px"><b>${m.fecha}</b> — ${m.tipo} — ${m.tecnico}<br/><small>${m.obs}</small></div>`).join('');
-    html += '</div>';
-    wrapper.innerHTML = html;
-  }
-
-  function agregarMantenimiento(){
-    if(!luminariaSeleccionadaParaMant){
-      alert('Selecciona primero una luminaria haciendo clic en el marcador o en "Ver ficha".');
-      return;
-    }
-    const fecha = document.getElementById('mantFecha').value || new Date().toISOString().slice(0,10);
-    const tecnico = document.getElementById('mantTecnico').value || 'Desconocido';
-    const tipo = document.getElementById('mantTipo').value;
-    const obs = document.getElementById('mantObs').value || '';
-    const item = inventario.find(x=> x.id===luminariaSeleccionadaParaMant);
-    item.mantenimiento = item.mantenimiento || [];
-    item.mantenimiento.push({fecha, tipo, tecnico, obs});
-    mostrarMantenimiento(item.id);
-    document.getElementById('mantFecha').value = '';
-    document.getElementById('mantTecnico').value = '';
-    document.getElementById('mantObs').value = '';
-    alert('Registro de mantenimiento agregado.');
-  }
-
-  /* -----------------------------------------------------------
-     EXPORTAR SIAP: JSON y CSV
-     ----------------------------------------------------------- */
-  function exportSIAPJSON(){
-    const payload = inventario.map(i=> ({
-      codigo_siap: i.codigoSIAP,
-      departamento: i.departamento,
-      municipio: i.municipio,
-      zona: i.zona,
-      nombre: i.nombre,
-      lat: i.coords[0],
-      lon: i.coords[1],
-      tipo_luminaria: i.tipo,
-      potencia_w: i.potenciaW,
-      flujo_lm: i.flujoLm,
-      altura_m: i.alturaM,
-      curva_fotometrica: i.curva_fotometrica,
-      fecha_instalacion: i.fecha_instalacion,
-      vida_util_anos: i.vida_util,
-      estado: i.estado,
-      consumo_mensual_kwh: i.consumoMensualKwh,
-      costo_kwh_cop: i.costoKwh,
-      costo_mensual_cop: i.costoMensual,
-      observaciones: i.observaciones,
-      mantenimiento: i.mantenimiento || []
-    }));
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'inventario_siap.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function exportSIAPCSV(){
-    const keys = ["codigo_siap","departamento","municipio","zona","nombre","lat","lon","tipo_luminaria","potencia_w","flujo_lm","altura_m","curva_fotometrica","fecha_instalacion","vida_util_anos","estado","consumo_mensual_kwh","costo_kwh_cop","costo_mensual_cop","observaciones"];
-    const rows = inventario.map(i => {
-      return {
-        codigo_siap:i.codigoSIAP, departamento:i.departamento, municipio:i.municipio, zona:i.zona,
-        nombre:i.nombre, lat:i.coords[0], lon:i.coords[1], tipo_luminaria:i.tipo,
-        potencia_w:i.potenciaW, flujo_lm:i.flujoLm, altura_m:i.alturaM, curva_fotometrica:i.curva_fotometrica,
-        fecha_instalacion:i.fecha_instalacion, vida_util_anos:i.vida_util, estado:i.estado,
-        consumo_mensual_kwh:i.consumoMensualKwh, costo_kwh_cop:i.costoKwh, costo_mensual_cop:i.costoMensual,
-        observaciones: (i.observaciones||'').replace(/\n/g,' ')
-      };
-    });
-    let csv = keys.join(',') + '\n';
-    for(const r of rows){
-      csv += keys.map(k=> `"${String(r[k]===undefined?'':r[k]).replace(/"/g,'""')}"`).join(',') + '\n';
-    }
-    const blob = new Blob([csv], {type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'inventario_siap.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  /* -----------------------------------------------------------
-     BÚSQUEDA / FILTRADO
-     ----------------------------------------------------------- */
-  function filtrarInventario(){
-    const q = document.getElementById('search').value.toLowerCase().trim();
-    const results = inventario.filter(i => {
-      return i.nombre.toLowerCase().includes(q) ||
-             i.municipio.toLowerCase().includes(q) ||
-             i.zona.toLowerCase().includes(q) ||
-             (i.codigoSIAP && i.codigoSIAP.toLowerCase().includes(q)) ||
-             i.departamento.toLowerCase().includes(q);
-    });
-    const wrapper = document.getElementById('searchResults');
-    if(!q){ wrapper.innerHTML=''; return; }
-    if(results.length===0) wrapper.innerHTML = '<div class="small">No se encontraron coincidencias.</div>';
-    else wrapper.innerHTML = results.slice(0,10).map(r=> `<div style="margin-bottom:8px"><strong style="cursor:pointer;color:var(--accent)" onclick="verFicha(${r.id})">${r.nombre}</strong><br/><small class="muted-small">${r.municipio} • ${r.zona} • ${r.codigoSIAP}</small></div>`).join('');
-  }
-
-  /* -----------------------------------------------------------
-     COMPROBACIÓN FOTOMÉTRICA (simplificada)
-     ----------------------------------------------------------- */
-  function comprobarFotometria(item){
-    const flujoRelativo = item.flujoLm / (item.alturaM * 10);
-    return flujoRelativo >= 1500;
-  }
-
-  /* -----------------------------------------------------------
-     MAP TOGGLE (oculto por defecto) - funciones openMap/closeMap/toggleMap
-     ----------------------------------------------------------- */
-  const mapContainer = document.getElementById('mapContainer');
-  const toggleBtn = document.getElementById('toggleMapBtn');
-  // dejar oculto por defecto (usuario lo abre)
-  function closeMap(){
-    mapContainer.classList.remove('open');
-    mapContainer.setAttribute('aria-hidden','true');
-    toggleBtn.title = 'Abrir mapa';
-    // cambiar icon (opcional simple)
-    toggleBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L15 8H9L12 2Z" fill="white"/></svg>`;
-  }
-  function openMap(){
-    mapContainer.classList.add('open');
-    mapContainer.setAttribute('aria-hidden','false');
-    toggleBtn.title = 'Cerrar mapa';
-    toggleBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 12s4-7 9-7 9 7 9 7-4 7-9 7-9-7-9-7z" fill="white"/></svg>`;
-    // Leaflet necesita tiempo para recalcular si el contenedor cambió tamaño
-    setTimeout(()=>{ try{ map.invalidateSize(); }catch(e){} }, 260);
-  }
-  function toggleMap(){ if(mapContainer.classList.contains('open')){ closeMap(); } else { openMap(); } }
-  // iniciar cerrado
-  closeMap();
-
-  /* -----------------------------------------------------------
-     Inicial render y exponer funciones globalmente
-     ----------------------------------------------------------- */
-  renderMunicipios();
-
-  window.centrarMunicipio = centrarMunicipio;
-  window.verFicha = verFicha;
-  window.mostrarSeccion = mostrarSeccion;
-  window.mostrarZonasMunicipio = mostrarZonasMunicipio;
-  window.verZona = verZona;
-  window.exportSIAPJSON = exportSIAPJSON;
-  window.exportSIAPCSV = exportSIAPCSV;
-  window.centrarEn = centrarEn;
-  window.editarEstado = editarEstado;
-  window.agregarMantenimiento = agregarMantenimiento;
-  window.mostrarMantenimiento = mostrarMantenimiento;
-  window.openMap = openMap;
-  window.closeMap = closeMap;
-  window.toggleMap = toggleMap;
-
-  </script>
 </body>
 </html>
