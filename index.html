@@ -1,48 +1,38 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <title>Mapa + Sistema de Alumbrado (RETLAP + SIAP)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <title>Inventario de Luminarias SIAP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
 
-  <!-- CSS separado -->
+  <!-- CSS PRINCIPAL -->
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-  <!-- decorative stars -->
-  <div class="stars"></div>
-  <div class="stars2"></div>
-  <div class="stars3"></div>
-
-  <!-- suns decorative -->
-  <div class="suns-wrap" aria-hidden="true">
-    <div class="orbit">
-      <div class="sun back"></div>
-      <div class="sun mid" style="left:30%;top:40%"></div>
-      <div class="sun front" style="left:65%;top:55%"></div>
-    </div>
-  </div>
-  <!-- --------------------
-     AUTH: Login & Register (visible until login)
-     -------------------- -->
+<!-- =========================
+     AUTENTICACIÓN
+========================= -->
 <div id="authContainer" class="center">
   <div class="box" style="width:100%;max-width:380px;">
-    
+
     <!-- LOGIN -->
     <div id="loginBoxAuth">
       <h2>Iniciar Sesión</h2>
-      <input type="email" id="authLoginEmail" placeholder="Correo" class="auth-input" autocomplete="username">
-      <input type="password" id="authLoginPass" placeholder="Contraseña" class="auth-input" autocomplete="current-password">
+      <input type="email" id="authLoginEmail" placeholder="Correo" class="auth-input">
+      <input type="password" id="authLoginPass" placeholder="Contraseña" class="auth-input">
       <button class="auth-btn" onclick="authLogin()">Ingresar</button>
-      <div class="auth-link" onclick="authShowRegister()">¿No tienes una cuenta? Regístrate</div>
+      <div class="auth-link" onclick="authShowRegister()">¿No tienes cuenta? Regístrate</div>
     </div>
 
-    <!-- REGISTER -->
-    <div id="registerBoxAuth" style="display:none; margin-top:6px;">
+    <!-- REGISTRO -->
+    <div id="registerBoxAuth" style="display:none;">
       <h2>Registrarse</h2>
       <input type="text" id="authRegNombre" placeholder="Nombre completo" class="auth-input">
       <input type="email" id="authRegEmail" placeholder="Correo" class="auth-input">
@@ -54,23 +44,95 @@
   </div>
 </div>
 
+<!-- =========================
+     APP PRINCIPAL
+========================= -->
+<div id="app" class="hidden">
 
-  <!-- ================= AUTH ================= -->
-  <!-- 🔴 TODO este bloque es EXACTAMENTE el mismo -->
-  <!-- (login, register, appContent, sidebar, map, etc.) -->
-  <!-- NO se ha tocado ni una línea -->
+  <!-- HEADER -->
+  <header class="header">
+    <h1>Inventario de Luminarias</h1>
+    <div class="header-actions">
+      <input
+        type="text"
+        id="search"
+        placeholder="Buscar luminaria, municipio, zona, SIAP..."
+        oninput="filtrarInventario()"
+      />
+      <button class="btn" onclick="exportSIAPJSON()">Exportar JSON</button>
+      <button class="btn secondary" onclick="exportSIAPCSV()">Exportar CSV</button>
+      <button class="btn ghost" onclick="authLogout()">Cerrar sesión</button>
+    </div>
+  </header>
 
-  <!-- 👉 PEGA AQUÍ TODO TU HTML DESDE:
-       <div id="authContainer"...>
-       HASTA:
-       </div> (antes de Leaflet script)
-  -->
+  <!-- RESULTADOS BÚSQUEDA -->
+  <div id="searchResults" class="search-results"></div>
 
-  <!-- Leaflet -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- NAVEGACIÓN -->
+  <nav class="nav">
+    <button class="nav-btn" onclick="mostrarSeccion('inventario')">Inventario</button>
+    <button class="nav-btn" onclick="mostrarSeccion('zonas')">Zonas</button>
+    <button class="nav-btn" onclick="mostrarSeccion('ficha')">Ficha técnica</button>
+  </nav>
 
-  <!-- JS separado -->
-  <script src="app.js"></script>
+  <!-- CONTENIDO -->
+  <main class="content">
+
+    <!-- INVENTARIO -->
+    <section id="inventario" class="section">
+      <h2>Municipios</h2>
+      <div id="municipiosList"></div>
+    </section>
+
+    <!-- ZONAS -->
+    <section id="zonas" class="section hidden">
+      <h2>Consumo por zonas</h2>
+      <div id="zonasTableWrapper"></div>
+    </section>
+
+    <!-- FICHA -->
+    <section id="ficha" class="section hidden">
+      <h2>Ficha técnica</h2>
+
+      <div id="fichaDetalle" class="box"></div>
+
+      <!-- MANTENIMIENTO -->
+      <div class="box">
+        <h3>Mantenimiento</h3>
+        <div id="mantList"></div>
+
+        <div class="mant-form">
+          <input type="date" id="mantFecha">
+          <input type="text" id="mantTecnico" placeholder="Técnico">
+          <select id="mantTipo">
+            <option value="Preventivo">Preventivo</option>
+            <option value="Correctivo">Correctivo</option>
+            <option value="Reemplazo">Reemplazo</option>
+          </select>
+          <textarea id="mantObs" placeholder="Observaciones"></textarea>
+          <button class="btn" onclick="agregarMantenimiento()">Agregar mantenimiento</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- =========================
+     MAPA
+========================= -->
+<div id="mapContainer" aria-hidden="true">
+  <button id="toggleMapBtn" onclick="toggleMap()" title="Abrir mapa"></button>
+  <div id="map"></div>
+</div>
+
+<!-- =========================
+     LIBRERÍAS
+========================= -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- APP JS -->
+<script src="app.js"></script>
+
 </body>
 </html>
-
