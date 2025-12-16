@@ -7,8 +7,6 @@
 let users = JSON.parse(localStorage.getItem("users") || "[]");
 
 function checkAuthOnLoad() {
-  const authContainer = document.getElementById("authContainer");
-  const appContent = document.getElementById("appContent");
 
   // 🔒 Protección total (evita error null)
   if (!authContainer || !appContent) {
@@ -136,3 +134,4 @@ window.authRegister = authRegister;
 window.authShowLogin = authShowLogin;
 window.authShowRegister = authShowRegister;
 window.logout = logout;
+
