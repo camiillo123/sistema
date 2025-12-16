@@ -1,66 +1,346 @@
-/* -------------------------
-   Global + Auth styles
-   ------------------------- */
+/* =========================
+   VARIABLES GLOBALES
+========================= */
 :root{
-  --accent:#1f6feb;
-  --accent-600:#165fcc;
-  --bg:#000000;
-  --card:#ffffff;
-  --muted:#667;
-  --danger:#c9030d;
-  --glass: rgba(255,255,255,0.7);
+  --bg:#0b1020;
+  --panel:#11162a;
+  --panel-soft:#151b34;
+  --text:#e6e9f2;
+  --muted:#9aa3c7;
+  --accent:#4ea1ff;
+  --danger:#ff4d4f;
+  --ok:#22c55e;
+  --warn:#f59e0b;
+  --border:#222862;
+  --radius:12px;
+}
+
+/* =========================
+   RESET BÁSICO
+========================= */
+*{
+  box-sizing:border-box;
 }
 
 html,body{
-  height:100%;
   margin:0;
-  font-family:Inter, Arial, Helvetica, sans-serif;
+  padding:0;
+  height:100%;
   background:var(--bg);
-  color:#0f1724;
-  -webkit-font-smoothing:antialiased
+  color:var(--text);
+  font-family:Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
 }
 
-/* Background stars and space */
-body::before{
-  content:"";
+/* =========================
+   UTILIDADES
+========================= */
+.hidden{
+  display:none !important;
+}
+
+.center{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+}
+
+.small{
+  font-size:13px;
+}
+
+.muted-small{
+  font-size:12px;
+  color:var(--muted);
+}
+
+/* =========================
+   CONTENEDORES
+========================= */
+.box{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.25);
+}
+
+/* =========================
+   AUTH (LOGIN / REGISTER)
+========================= */
+#authContainer{
+  background:linear-gradient(160deg,#0b1020,#060915);
+}
+
+.auth-input{
+  width:100%;
+  padding:10px;
+  margin-bottom:10px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:#0f1430;
+  color:var(--text);
+}
+
+.auth-input:focus{
+  outline:none;
+  border-color:var(--accent);
+}
+
+.auth-btn{
+  width:100%;
+  padding:10px;
+  border-radius:8px;
+  border:none;
+  background:var(--accent);
+  color:#fff;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.auth-btn:hover{
+  opacity:.9;
+}
+
+.auth-link{
+  margin-top:10px;
+  text-align:center;
+  font-size:13px;
+  color:var(--accent);
+  cursor:pointer;
+}
+
+/* =========================
+   HEADER
+========================= */
+.header{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  justify-content:space-between;
+  align-items:center;
+  padding:16px;
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+}
+
+.header h1{
+  margin:0;
+  font-size:20px;
+}
+
+.header-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.header-actions input{
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:#0f1430;
+  color:var(--text);
+}
+
+/* =========================
+   BOTONES
+========================= */
+.btn{
+  padding:8px 12px;
+  border-radius:8px;
+  border:none;
+  background:var(--accent);
+  color:#fff;
+  font-weight:500;
+  cursor:pointer;
+}
+
+.btn.small{
+  padding:6px 10px;
+  font-size:13px;
+}
+
+.btn.secondary{
+  background:#6366f1;
+}
+
+.btn.ghost{
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text);
+}
+
+.btn:hover{
+  opacity:.9;
+}
+
+/* =========================
+   NAVEGACIÓN
+========================= */
+.nav{
+  display:flex;
+  gap:8px;
+  padding:12px;
+  background:var(--panel-soft);
+  border-bottom:1px solid var(--border);
+}
+
+.nav-btn{
+  background:#0f1430;
+  color:var(--text);
+  border:1px solid var(--border);
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.nav-btn:hover{
+  border-color:var(--accent);
+}
+
+/* =========================
+   CONTENIDO
+========================= */
+.content{
+  padding:16px;
+}
+
+.section h2{
+  margin-top:0;
+}
+
+/* =========================
+   LISTADOS
+========================= */
+#municipiosList > div{
+  margin-bottom:10px;
+}
+
+/* =========================
+   TABLAS
+========================= */
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+th,td{
+  padding:8px;
+  border-bottom:1px solid var(--border);
+  text-align:left;
+}
+
+th{
+  background:#0f1430;
+}
+
+/* =========================
+   FICHA
+========================= */
+.badge{
+  padding:3px 8px;
+  border-radius:20px;
+  font-size:12px;
+}
+
+.status-active{
+  background:rgba(34,197,94,.2);
+  color:var(--ok);
+}
+
+.status-fallo{
+  background:rgba(255,77,79,.2);
+  color:var(--danger);
+}
+
+/* =========================
+   MANTENIMIENTO
+========================= */
+.mant-form{
+  display:grid;
+  gap:8px;
+}
+
+.mant-form input,
+.mant-form select,
+.mant-form textarea{
+  padding:8px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:#0f1430;
+  color:var(--text);
+}
+
+.mant-form textarea{
+  resize:vertical;
+  min-height:60px;
+}
+
+/* =========================
+   BÚSQUEDA
+========================= */
+.search-results{
+  padding:0 16px;
+}
+
+.search-results > div{
+  padding:8px;
+  border-bottom:1px solid var(--border);
+}
+
+/* =========================
+   MAPA
+========================= */
+#mapContainer{
   position:fixed;
-  inset:0;
-  background:
-    radial-gradient(ellipse at bottom, rgba(10,12,20,0.6), transparent 40%),
-    linear-gradient(#020417,#071028 60%);
-  z-index:-3;
+  top:0;
+  right:0;
+  width:100%;
+  max-width:480px;
+  height:100%;
+  background:#000;
+  transform:translateX(100%);
+  transition:transform .25s ease;
+  z-index:999;
 }
 
-/* star field */
-.stars, .stars2, .stars3{
-  position:fixed;
-  inset:0;
-  z-index:-2;
-  pointer-events:none;
-  background-repeat: repeat;
+#mapContainer.open{
+  transform:translateX(0);
 }
 
-.stars{
-  background-image: radial-gradient(white 0.8px, rgba(255,255,255,0) 1px);
-  background-size: 120px 120px;
-  opacity:0.45;
+#map{
+  width:100%;
+  height:100%;
 }
 
-.stars2{
-  background-image: radial-gradient(white 0.6px, rgba(255,255,255,0) 1px);
-  background-size: 60px 60px;
-  opacity:0.25;
-  transform: scale(1.8);
+#toggleMapBtn{
+  position:absolute;
+  top:12px;
+  left:-44px;
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  border:none;
+  background:var(--accent);
+  color:#fff;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 4px 12px rgba(0,0,0,.4);
 }
 
-.stars3{
-  background-image: radial-gradient(white 1px, rgba(255,255,255,0) 1px);
-  background-size: 200px 200px;
-  opacity:0.12;
-  transform: scale(0.9);
+/* =========================
+   RESPONSIVE
+========================= */
+@media(max-width:768px){
+  .header{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  #mapContainer{
+    max-width:100%;
+  }
 }
-
-/* 🔴 CONTINÚA AQUÍ TODO TU CSS ORIGINAL
-   EXACTAMENTE COMO ESTABA
-   (auth, app, panel, map, botones, responsive, etc.)
-*/
