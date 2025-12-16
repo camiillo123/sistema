@@ -26,6 +26,34 @@
       <div class="sun front" style="left:65%;top:55%"></div>
     </div>
   </div>
+  <!-- --------------------
+     AUTH: Login & Register (visible until login)
+     -------------------- -->
+<div id="authContainer" class="center">
+  <div class="box" style="width:100%;max-width:380px;">
+    
+    <!-- LOGIN -->
+    <div id="loginBoxAuth">
+      <h2>Iniciar Sesión</h2>
+      <input type="email" id="authLoginEmail" placeholder="Correo" class="auth-input" autocomplete="username">
+      <input type="password" id="authLoginPass" placeholder="Contraseña" class="auth-input" autocomplete="current-password">
+      <button class="auth-btn" onclick="authLogin()">Ingresar</button>
+      <div class="auth-link" onclick="authShowRegister()">¿No tienes una cuenta? Regístrate</div>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="registerBoxAuth" style="display:none; margin-top:6px;">
+      <h2>Registrarse</h2>
+      <input type="text" id="authRegNombre" placeholder="Nombre completo" class="auth-input">
+      <input type="email" id="authRegEmail" placeholder="Correo" class="auth-input">
+      <input type="password" id="authRegPass" placeholder="Contraseña" class="auth-input">
+      <button class="auth-btn" onclick="authRegister()">Crear cuenta</button>
+      <div class="auth-link" onclick="authShowLogin()">¿Ya tienes cuenta? Inicia sesión</div>
+    </div>
+
+  </div>
+</div>
+
 
   <!-- ================= AUTH ================= -->
   <!-- 🔴 TODO este bloque es EXACTAMENTE el mismo -->
@@ -45,3 +73,4 @@
   <script src="app.js"></script>
 </body>
 </html>
+
